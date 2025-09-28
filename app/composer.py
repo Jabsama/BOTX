@@ -18,9 +18,11 @@ from .trends import TrendsManager
 # Import realtime trends extractor and viral composer
 try:
     from .trends_realtime import RealtimeTrendsExtractor
+    from .trends_top10_world import Top10WorldTrends
     from .composer_viral import ViralTweetComposer, SmartTweetOptimizer
 except ImportError:
     RealtimeTrendsExtractor = None
+    Top10WorldTrends = None
     ViralTweetComposer = None
     SmartTweetOptimizer = None
 
@@ -72,7 +74,10 @@ class TweetComposer:
         self.store = store
         self.trends_manager = trends_manager
         self.last_angles = {'A': None, 'B': None}
-        # Initialize realtime trends extractor
+        # Initialize TOP 10 WORLD trends (PRIORITY)
+        bearer_token = getattr(config, 'TWITTER_BEARER_TOKEN', None)
+        self.top10_world = Top10WorldTrends(bearer_token) if Top10WorldTrends else None
+        # Initialize realtime trends extractor (fallback)
         self.realtime_trends = RealtimeTrendsExtractor() if RealtimeTrendsExtractor else None
         # Initialize viral composer
         self.viral_composer = ViralTweetComposer() if ViralTweetComposer else None
@@ -87,13 +92,25 @@ class TweetComposer:
             # Get REAL worldwide trending hashtags
             hashtags = []
             
-            # Try to get realtime trends first
-            if self.realtime_trends:
+            # PRIORITY: Try to get TOP 10 WORLD trends first
+            if self.top10_world:
+                try:
+                    top10_trends = await self.top10_world.get_real_top10_world()
+                    if top10_trends:
+                        # Pick 1-2 trending hashtags from TOP 10
+                        num_to_pick = min(2, len(top10_trends))
+                        hashtags = random.sample(top10_trends, num_to_pick)
+                        logger.info(f"Using TOP 10 WORLD trends for {account_id}: {', '.join(hashtags)}")
+                except Exception as e:
+                    logger.warning(f"Could not get TOP 10 world trends: {e}")
+            
+            # Fallback to realtime trends if TOP 10 not available
+            if not hashtags and self.realtime_trends:
                 try:
                     worldwide_trends = await self.realtime_trends.get_worldwide_trends()
                     if worldwide_trends:
                         # Pick 2-3 random trending hashtags
-                        hashtags = random.sample(worldwide_trends, min(3, len(worldwide_trends)))
+                        hashtags = random.sample(worldwide_trends, min(2, len(worldwide_trends)))
                         logger.info(f"Using realtime trends for {account_id}: {', '.join(hashtags)}")
                 except Exception as e:
                     logger.warning(f"Could not get realtime trends: {e}")
