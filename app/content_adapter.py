@@ -156,25 +156,42 @@ class ContentAdapter:
         openai_cost = competitor['input']
         savings = int(((openai_cost - voltage_cost) / openai_cost) * 100) if voltage_cost > 0 else 100
         
-        # Exemples de projets avec volumes réels
+        # Exemples de projets avec contexte clair
         projects = [
             {
-                'name': 'Compliance audit RAG',
-                'volume': '80k in / 10k out',
-                'voltage_cost': 0.056,
-                'openai_cost': 1.80
+                'name': 'RAG pipeline',
+                'description': '80k tokens input + 10k output',
+                'voltage_total': '$0.056',
+                'openai_total': '$1.80',
+                'savings_percent': '97%'
             },
             {
-                'name': 'Auto-dev PR workflow',
-                'volume': '6k in / 20k out', 
-                'voltage_cost': 0.04,
-                'openai_cost': 1.29
+                'name': 'Code review bot',
+                'description': '6k context + 20k generation', 
+                'voltage_total': '$0.04',
+                'openai_total': '$1.29',
+                'savings_percent': '97%'
             },
             {
-                'name': 'Ops optimizer',
-                'volume': '3k in / 12k out',
-                'voltage_cost': 0.024,
-                'openai_cost': 0.765
+                'name': 'Customer support AI',
+                'description': '3k prompt + 12k response',
+                'voltage_total': '$0.024',
+                'openai_total': '$0.765',
+                'savings_percent': '97%'
+            },
+            {
+                'name': 'Data extraction API',
+                'description': '100k documents processed',
+                'voltage_total': '$0.047',
+                'openai_total': '$1.50',
+                'savings_percent': '97%'
+            },
+            {
+                'name': 'Translation service',
+                'description': '50k multilingual tokens',
+                'voltage_total': '$0.031',
+                'openai_total': '$0.75',
+                'savings_percent': '96%'
             }
         ]
         
@@ -186,7 +203,7 @@ class ContentAdapter:
             'competitor': competitor_key,
             'savings': savings,
             'project': project,
-            'hashtag': '#AIInference'
+            'hashtags': ['#LLM', '#AIInference', '#MLOps', '#AIModels', '#DeepLearning', '#MachineLearning']
         }
     
     def get_gpu_compute_content(self) -> Dict:
@@ -213,7 +230,7 @@ class ContentAdapter:
             'gpu': gpu,
             'aws': aws_equivalent,
             'savings': savings,
-            'hashtag': '#GPUCompute'
+            'hashtags': ['#CloudGPU', '#GPUCloud', '#HPC', '#DataCenter', '#CloudCompute', '#GPUCluster']
         }
     
     def generate_comparison_hook(self, content: Dict) -> str:
@@ -221,11 +238,11 @@ class ContentAdapter:
         
         if content['type'] == 'ai_inference':
             hooks = [
-                f"DeepSeek-R1 on VoltageGPU: {content['competitor']} quality at {content['savings']}% less",
-                f"Why pay ${content['project']['openai_cost']:.2f} when ${content['project']['voltage_cost']:.3f} does the same?",
-                f"{content['model']['name']}: {content['model']['runs']} runs prove the value",
-                f"Migration math: {content['competitor']} → VoltageGPU = {content['savings']}% savings",
-                f"Project reality: {content['project']['name']} for ${content['project']['voltage_cost']:.3f} vs ${content['project']['openai_cost']:.2f}"
+                f"{content['model']['name']} beats {content['competitor']}: {content['savings']}% cheaper per token",
+                f"{content['project']['name']}: {content['project']['voltage_total']} vs OpenAI's {content['project']['openai_total']}",
+                f"Real use case: {content['project']['description']} for {content['project']['voltage_total']}",
+                f"{content['model']['runs']} devs switched from {content['competitor']} → saved {content['savings']}%",
+                f"Why {content['competitor']} at 30x the price? {content['model']['name']} does the same"
             ]
         else:  # gpu_compute
             hooks = [
@@ -243,16 +260,16 @@ class ContentAdapter:
         
         if content['type'] == 'ai_inference':
             proofs = [
-                f"📊 {content['model']['name']}: ${content['model']['input_price']}/M in, ${content['model']['output_price']}/M out",
-                f"💡 {content['model']['runs']} runs completed • {content['model']['context']} context",
-                f"🎯 Real project: {content['project']['volume']} = ${content['project']['voltage_cost']:.3f}",
-                f"✨ {content['model']['description']} • {content['savings']}% cheaper",
-                f"🔥 Live now: {content['model']['name']} serving {content['model']['runs']} requests"
+                f"📊 Pricing: ${content['model']['input_price']}/M input, ${content['model']['output_price']}/M output tokens",
+                f"💡 {content['model']['runs']} requests served • {content['model']['context']} context window",
+                f"🎯 {content['project']['name']}: {content['project']['description']} = {content['project']['voltage_total']}",
+                f"✨ {content['model']['description']} • Save {content['project']['savings_percent']}",
+                f"🔥 Live benchmark: {content['project']['voltage_total']} vs {content['project']['openai_total']} for same task"
             ]
         else:  # gpu_compute
             proofs = [
                 f"💪 {content['gpu']['cpu']} • {content['gpu']['ram']} RAM • ${content['gpu']['price']}/hr",
-                f"📍 {content['gpu']['location']} • {content['gpu']['uptime']} uptime guaranteed",
+                f"� {content['gpu']['location']} • {content['gpu']['uptime']} uptime guaranteed",
                 f"⚡ {content['gpu']['name']} ready now • No queue • ${content['gpu']['price']}/hr",
                 f"🚀 vs AWS: Save ${content['aws']['price'] - content['gpu']['price']:.2f}/hr on same hardware",
                 f"🔥 {content['gpu']['name']} cluster • Instant deploy • ${content['gpu']['price']}/hr"

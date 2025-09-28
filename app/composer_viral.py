@@ -169,7 +169,7 @@ class ViralTweetComposer:
             'topic': topic
         }
     
-    def create_value_prop(self, category: str, hashtags: List[str] = None) -> str:
+    def create_value_prop(self, category: str, hashtags: List[str] = None) -> Dict:
         """Create value proposition with REAL prices and comparisons."""
         
         # Use ContentAdapter for accurate pricing
@@ -178,10 +178,18 @@ class ViralTweetComposer:
             
             if context_type == 'ai_inference':
                 content = self.content_adapter.get_ai_inference_content()
-                return self.content_adapter.generate_proof_point(content)
+                return {
+                    'proof': self.content_adapter.generate_proof_point(content),
+                    'hashtags': content['hashtags'],
+                    'type': 'ai_inference'
+                }
             else:  # gpu_compute
                 content = self.content_adapter.get_gpu_compute_content()
-                return self.content_adapter.generate_proof_point(content)
+                return {
+                    'proof': self.content_adapter.generate_proof_point(content),
+                    'hashtags': content['hashtags'],
+                    'type': 'gpu_compute'
+                }
         
         # Fallback to original logic
         use_gpu_example = random.random() > 0.5
@@ -225,8 +233,11 @@ class ViralTweetComposer:
         hook = hook_data['hook']
         category = hook_data['category']
         
-        # Get value proposition with real pricing
-        value_prop = self.create_value_prop(category, hashtags)
+        # Get value proposition with real pricing and appropriate hashtags
+        value_data = self.create_value_prop(category, hashtags)
+        value_prop = value_data['proof']
+        domain_hashtags = value_data['hashtags']
+        content_type = value_data['type']
         
         # Get CTA with promo
         cta = self.create_cta_with_promo()
@@ -234,24 +245,24 @@ class ViralTweetComposer:
         # Shorten URL
         short_url = await self.shorten_url(self.BASE_URL)
         
-        # Select hashtags with domain requirement
+        # Select hashtags intelligently based on content type
         if self.domain_manager:
-            # Generate semantic domain hashtags based on category
-            semantic_options = self._get_semantic_hashtags_for_category(category)
+            # Pick one trending hashtag
+            trend_tag = hashtags[0] if hashtags else '#Tech'
             
-            # Use domain manager to ensure at least one domain hashtag
-            selected_tags = self.domain_manager.select_hashtags_with_domain(
-                trend_hashtags=hashtags[:3],  # Top 3 trends
-                semantic_hashtags=semantic_options,
-                angle=category,
-                require_domain=True,
-                max_hashtags=2
-            )
+            # Pick one domain hashtag that matches the content
+            if content_type == 'ai_inference':
+                # For AI content, use AI-related hashtags
+                domain_tag = random.choice(['#LLM', '#AIInference', '#MLOps', '#AIModels'])
+            else:
+                # For GPU compute, use compute-related hashtags
+                domain_tag = random.choice(['#CloudGPU', '#GPUCloud', '#HPC', '#CloudCompute'])
+            
+            selected_tags = [trend_tag, domain_tag]
             
             # Log hashtag selection for monitoring
-            for tag in selected_tags:
-                info = self.domain_manager.get_hashtag_info(tag)
-                logger.info(f"Selected hashtag: {tag} - Domain: {info['is_domain']} - Relevance: {info['domain_relevance']}")
+            logger.info(f"Content type: {content_type}")
+            logger.info(f"Selected hashtags: {selected_tags}")
         else:
             # Fallback to simple selection
             selected_tags = hashtags[:2] if len(hashtags) > 2 else hashtags
