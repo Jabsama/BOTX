@@ -222,16 +222,33 @@ class RealtimeTrendsExtractor:
         return trends[:10]
     
     def _clean_hashtag(self, hashtag: str) -> str:
-        """Clean and validate hashtag."""
+        """Clean and validate hashtag - ASCII only for compatibility."""
         # Ensure it starts with #
         if not hashtag.startswith('#'):
             hashtag = '#' + hashtag
             
+        # Remove non-ASCII characters first
+        hashtag = hashtag.encode('ascii', 'ignore').decode('ascii')
+        
         # Remove invalid characters
         hashtag = re.sub(r'[^#\w]', '', hashtag)
         
         # Check length
         if len(hashtag) < 3 or len(hashtag) > 30:
+            return None
+        
+        # Filter out noise hashtags and hex colors
+        noise_patterns = ['collapsible', 'θ', 'ち', '05508', 'اعلن', 'معرض']
+        for pattern in noise_patterns:
+            if pattern.lower() in hashtag.lower():
+                return None
+        
+        # Filter out hex color codes (like #2563eb)
+        if re.match(r'^#[0-9a-fA-F]{3,8}$', hashtag):
+            return None
+        
+        # Filter out pure numbers
+        if re.match(r'^#\d+$', hashtag):
             return None
             
         return hashtag

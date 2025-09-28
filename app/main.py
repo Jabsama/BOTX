@@ -19,13 +19,21 @@ from .composer import TweetComposer
 from .scheduler import PostScheduler
 from .tracker import StatusTracker, json_logger
 
-# Configure logging
+# Configure logging with UTF-8 encoding for Windows
+import sys
+import io
+
+# Force UTF-8 for stdout on Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('data/bot.log')
+        logging.FileHandler('data/bot.log', encoding='utf-8')
     ]
 )
 
