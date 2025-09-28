@@ -37,22 +37,24 @@ class TwitterClient:
             # Initialize v1.1 API (for some operations)
             auth = tweepy.OAuthHandler(creds['api_key'], creds['api_secret'])
             auth.set_access_token(creds['access_token'], creds['access_secret'])
-            self.api = tweepy.API(auth, wait_on_rate_limit=True)
+            # IMPORTANT: wait_on_rate_limit=False to keep accounts independent
+            self.api = tweepy.API(auth, wait_on_rate_limit=False)
             
             # Initialize v2 client (for posting)
+            # IMPORTANT: wait_on_rate_limit=False to avoid blocking other accounts
             self.client = tweepy.Client(
                 bearer_token=creds['bearer_token'],
                 consumer_key=creds['api_key'],
                 consumer_secret=creds['api_secret'],
                 access_token=creds['access_token'],
                 access_token_secret=creds['access_secret'],
-                wait_on_rate_limit=True
+                wait_on_rate_limit=False  # Don't block the entire bot!
             )
             
             # Bearer-only client for search operations
             self.bearer_client = tweepy.Client(
                 bearer_token=creds['bearer_token'],
-                wait_on_rate_limit=True
+                wait_on_rate_limit=False  # Don't block for searches either
             )
             
             logger.info(f"Twitter client initialized for account {self.account_id}")
