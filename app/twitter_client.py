@@ -73,17 +73,53 @@ class TwitterClient:
             logger.error(f"Failed to verify credentials for account {self.account_id}: {e}")
             return False
     
-    async def post_tweet(self, text: str) -> Optional[str]:
-        """Post a tweet and return the tweet ID."""
+    async def post_tweet(self, text: str, media_url: Optional[str] = None) -> Optional[str]:
+        """Post a tweet with optional media (GIF) and return the tweet ID."""
         try:
             # Add some randomization to avoid detection
             await asyncio.sleep(random.uniform(1, 3))
             
-            # Use synchronous client in async context with proper kwargs
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, 
-                lambda: self.client.create_tweet(text=text)
-            )
+            media_ids = []
+            
+            # Upload media if provided
+            if media_url:
+                try:
+                    import requests
+                    import tempfile
+                    import os
+                    
+                    # Download the GIF
+                    response = requests.get(media_url, timeout=10)
+                    if response.status_code == 200:
+                        # Save to temp file
+                        with tempfile.NamedTemporaryFile(suffix='.gif', delete=False) as tmp_file:
+                            tmp_file.write(response.content)
+                            tmp_path = tmp_file.name
+                        
+                        try:
+                            # Upload media using v1.1 API
+                            media = self.api.media_upload(tmp_path)
+                            media_ids.append(media.media_id)
+                            logger.info(f"Uploaded GIF for account {self.account_id}: {media.media_id}")
+                        finally:
+                            # Clean up temp file
+                            os.unlink(tmp_path)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to upload GIF for account {self.account_id}: {e}")
+                    # Continue without media
+            
+            # Post tweet with or without media
+            if media_ids:
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    lambda: self.client.create_tweet(text=text, media_ids=media_ids)
+                )
+            else:
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    lambda: self.client.create_tweet(text=text)
+                )
             
             if response and response.data:
                 tweet_id = response.data['id']
@@ -245,14 +281,14 @@ class TwitterClientManager:
             return self.clients['B']
         return None
     
-    async def post_tweet(self, account_id: str, text: str) -> Optional[str]:
-        """Post tweet using specified account."""
+    async def post_tweet(self, account_id: str, text: str, media_url: Optional[str] = None) -> Optional[str]:
+        """Post tweet with optional media using specified account."""
         client = self.get_client(account_id)
         if not client:
             logger.error(f"No client available for account {account_id}")
             return None
         
-        return await client.post_tweet(text)
+        return await client.post_tweet(text, media_url)
     
     def search_recent_tweets(self, query: str, max_results: int = 60) -> Any:
         """Search for recent tweets using the best available client."""

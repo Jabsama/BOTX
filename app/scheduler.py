@@ -17,6 +17,7 @@ from .store import Store
 from .composer import TweetComposer
 from .twitter_client import TwitterClient
 from .trends import TrendsManager
+from .gif_trending import TrendingGifManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class PostScheduler:
         self.twitter_clients = {}
         self.composer = None
         self.trends_manager = None
+        self.gif_manager = TrendingGifManager()  # Initialize GIF manager
         self.posting_lock = asyncio.Lock()
         self.last_post_times = {'A': None, 'B': None}
         self.daily_posts = {'A': 0, 'B': 0}
@@ -209,14 +211,25 @@ class PostScheduler:
                     logger.error(f"Account {account_id}: Failed to compose tweet")
                     return
                 
+                # Get trending GIF based on hashtags
+                hashtags = self._extract_hashtags(tweet_content)
+                gif_url = None
+                try:
+                    gif_data = await self.gif_manager.get_trending_gif(hashtags)
+                    if gif_data:
+                        gif_url = gif_data.get('url')
+                        logger.info(f"Account {account_id}: Found trending GIF with tags: {gif_data.get('tags', [])[:3]}")
+                except Exception as e:
+                    logger.warning(f"Account {account_id}: Could not get GIF: {e}")
+                
                 # Post tweet
                 client = self.twitter_clients.get(account_id)
                 if not client:
                     logger.error(f"Account {account_id}: No Twitter client available")
                     return
                 
-                logger.info(f"Account {account_id}: Posting tweet ({len(tweet_content)} chars)")
-                tweet_id = await client.post_tweet(tweet_content)
+                logger.info(f"Account {account_id}: Posting tweet ({len(tweet_content)} chars) with {'GIF' if gif_url else 'no media'}")
+                tweet_id = await client.post_tweet(tweet_content, media_url=gif_url)
                 
                 if tweet_id:
                     # Update tracking
