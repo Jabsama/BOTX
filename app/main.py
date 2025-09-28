@@ -130,12 +130,10 @@ class VoltageGPUBot:
                 self.tracker.start_server(host="0.0.0.0", port=8000)
             )
             
-            # Start posting timer if available
-            if start_posting_timer and rate_limit_tracker:
-                timer_task = asyncio.create_task(
-                    start_posting_timer(self.scheduler, rate_limit_tracker, interval=60)
-                )
-                logger.info("Posting timer started - updates every 60 seconds")
+            # Rate limit tracker is available but we don't start the visual timer
+            # The tracking and auto-retry still work in the background
+            if rate_limit_tracker:
+                logger.info("Rate limit tracking enabled with auto-retry on rate limits")
             
             logger.info("Bot started successfully!")
             logger.info("Status tracker available at http://localhost:8000/status")
