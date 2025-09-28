@@ -13,8 +13,10 @@ from datetime import datetime
 
 try:
     from .domain_hashtags import DomainHashtagManager
+    from .content_adapter import ContentAdapter
 except ImportError:
     DomainHashtagManager = None
+    ContentAdapter = None
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,7 @@ class ViralTweetComposer:
     def __init__(self):
         self.last_angle = None
         self.domain_manager = DomainHashtagManager() if DomainHashtagManager else None
+        self.content_adapter = ContentAdapter() if ContentAdapter else None
         
     async def shorten_url(self, long_url: str) -> str:
         """Shorten URL using a service or custom shortener."""
@@ -166,10 +169,21 @@ class ViralTweetComposer:
             'topic': topic
         }
     
-    def create_value_prop(self, category: str) -> str:
-        """Create value proposition with concrete examples."""
+    def create_value_prop(self, category: str, hashtags: List[str] = None) -> str:
+        """Create value proposition with REAL prices and comparisons."""
         
-        # Include concrete GPU/AI examples
+        # Use ContentAdapter for accurate pricing
+        if self.content_adapter and hashtags:
+            context_type = self.content_adapter.detect_context(hashtags)
+            
+            if context_type == 'ai_inference':
+                content = self.content_adapter.get_ai_inference_content()
+                return self.content_adapter.generate_proof_point(content)
+            else:  # gpu_compute
+                content = self.content_adapter.get_gpu_compute_content()
+                return self.content_adapter.generate_proof_point(content)
+        
+        # Fallback to original logic
         use_gpu_example = random.random() > 0.5
         
         if use_gpu_example:
@@ -211,8 +225,8 @@ class ViralTweetComposer:
         hook = hook_data['hook']
         category = hook_data['category']
         
-        # Get value proposition
-        value_prop = self.create_value_prop(category)
+        # Get value proposition with real pricing
+        value_prop = self.create_value_prop(category, hashtags)
         
         # Get CTA with promo
         cta = self.create_cta_with_promo()
