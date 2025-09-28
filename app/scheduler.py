@@ -277,8 +277,25 @@ class PostScheduler:
                     
                     # Track failure in rate limiter
                     if rate_limit_tracker:
-                        # Check if it was a rate limit error
-                        rate_limit_tracker.record_post_attempt(account_id, success=False, error_type='post_failed')
+                        # Check if it was a rate limit error (from twitter_client tracking)
+                        status = rate_limit_tracker.get_status()
+                        if status['accounts'][account_id]['status'] == 'rate_limited':
+                            # Schedule retry after rate limit reset
+                            reset_time = status['accounts'][account_id].get('rate_limit_reset')
+                            if reset_time:
+                                from datetime import datetime
+                                reset_dt = datetime.fromisoformat(reset_time)
+                                logger.info(f"Account {account_id}: Scheduling retry after rate limit reset at {reset_dt.strftime('%H:%M:%S')}")
+                                
+                                # Schedule a one-time retry
+                                self.scheduler.add_job(
+                                    self._post_for_account,
+                                    DateTrigger(run_date=reset_dt),
+                                    args=[account_id],
+                                    id=f'rate_limit_retry_{account_id}',
+                                    name=f'Rate Limit Retry {account_id}',
+                                    replace_existing=True
+                                )
                     
             except Exception as e:
                 logger.error(f"Account {account_id}: Error during posting: {e}")

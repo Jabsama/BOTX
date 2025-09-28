@@ -19,6 +19,14 @@ from .composer import TweetComposer
 from .scheduler import PostScheduler
 from .tracker import StatusTracker, json_logger
 
+# Import rate limit tracker and posting timer
+try:
+    from .rate_limit_tracker import rate_limit_tracker
+    from .posting_timer import start_posting_timer
+except ImportError:
+    rate_limit_tracker = None
+    start_posting_timer = None
+
 # Configure logging with UTF-8 encoding for Windows
 import sys
 import io
@@ -121,6 +129,13 @@ class VoltageGPUBot:
             tracker_task = asyncio.create_task(
                 self.tracker.start_server(host="0.0.0.0", port=8000)
             )
+            
+            # Start posting timer if available
+            if start_posting_timer and rate_limit_tracker:
+                timer_task = asyncio.create_task(
+                    start_posting_timer(self.scheduler, rate_limit_tracker, interval=60)
+                )
+                logger.info("Posting timer started - updates every 60 seconds")
             
             logger.info("Bot started successfully!")
             logger.info("Status tracker available at http://localhost:8000/status")
