@@ -46,9 +46,12 @@ class TrendsManager:
         self.config = config
         self.store = store
         self.twitter_client = None
-        self.pytrends = TrendReq() if TrendReq else None
+        self.pytrends = self._init_pytrends() if TrendReq else None
         self.last_refresh = None
         self.cached_trends = []
+        # Circuit breaker for PyTrends
+        self.pytrends_degraded_until = None
+        self.pytrends_fail_count = 0
         
     def set_twitter_client(self, client):
         """Set Twitter client for search operations."""
@@ -155,15 +158,55 @@ class TrendsManager:
             
         return trends
     
+    def _init_pytrends(self):
+        """Initialize PyTrends with proper configuration."""
+        try:
+            # Set PyTrends logger to reduce noise
+            pytrends_logger = logging.getLogger("pytrends")
+            pytrends_logger.setLevel(logging.ERROR)
+            
+            return TrendReq(
+                hl="en-US",
+                tz=0,
+                retries=4,
+                backoff_factor=0.4,
+                timeout=(3, 15),
+                requests_args={
+                    "headers": {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 VoltageGPU-Bot/2.0"
+                    }
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize PyTrends: {e}")
+            return None
+    
     async def _extract_google_trends(self) -> List[Dict]:
         """Extract trends from Google Trends across multiple regions."""
         trends = []
         
+        # Check circuit breaker
+        if self.pytrends_degraded_until:
+            if datetime.now() < self.pytrends_degraded_until:
+                logger.debug("PyTrends in degraded mode, skipping")
+                return trends
+            else:
+                # Reset circuit breaker
+                self.pytrends_degraded_until = None
+                self.pytrends_fail_count = 0
+                logger.info("PyTrends circuit breaker reset, retrying")
+        
         try:
-            for region in self.REGIONS[:5]:  # Limit to 5 regions to avoid rate limits
+            success_count = 0
+            for region in self.REGIONS[:3]:  # Reduce to 3 regions
                 try:
-                    # Get trending searches
-                    trending = self.pytrends.trending_searches(pn=region)
+                    # Try realtime trends first
+                    trending = None
+                    try:
+                        trending = self.pytrends.realtime_trending_searches(pn=region[:2].upper())
+                    except:
+                        # Fallback to regular trending
+                        trending = self.pytrends.trending_searches(pn=region)
                     
                     if trending is not None and not trending.empty:
                         for topic in trending[0][:10]:  # Top 10 per region
@@ -179,9 +222,20 @@ class TrendsManager:
                     
                     await asyncio.sleep(1)  # Rate limiting
                     
+                    success_count += 1
+                    
                 except Exception as e:
-                    logger.warning(f"Error getting trends for {region}: {e}")
+                    # Only log first failure per region
+                    if self.pytrends_fail_count == 0:
+                        logger.info(f"PyTrends unavailable for {region}: {e}")
                     continue
+            
+            # If all regions failed, activate circuit breaker
+            if success_count == 0:
+                self.pytrends_fail_count += 1
+                if self.pytrends_fail_count >= 3:
+                    self.pytrends_degraded_until = datetime.now() + timedelta(minutes=60)
+                    logger.info("PyTrends circuit breaker activated for 60 minutes")
                     
         except Exception as e:
             logger.error(f"Error extracting Google trends: {e}")
