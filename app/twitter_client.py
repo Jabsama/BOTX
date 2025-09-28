@@ -130,8 +130,15 @@ class TwitterClient:
             
             return None
             
-        except TooManyRequests:
-            logger.error(f"Rate limit exceeded for account {self.account_id}")
+        except TooManyRequests as e:
+            logger.error(f"Rate limit exceeded for account {self.account_id}: {e}")
+            # Import rate limit tracker if available
+            try:
+                from .rate_limit_tracker import rate_limit_tracker
+                rate_limit_tracker.record_post_attempt(self.account_id, success=False, error_type='rate_limit')
+                rate_limit_tracker.print_status()
+            except ImportError:
+                pass
             return None
         except Forbidden as e:
             logger.error(f"Forbidden error for account {self.account_id}: {e}")

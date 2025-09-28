@@ -19,6 +19,12 @@ from .twitter_client import TwitterClient
 from .trends import TrendsManager
 from .gif_trending import TrendingGifManager
 
+# Import rate limit tracker
+try:
+    from .rate_limit_tracker import rate_limit_tracker
+except ImportError:
+    rate_limit_tracker = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -262,11 +268,29 @@ class PostScheduler:
                     
                     logger.info(f"Account {account_id}: Successfully posted tweet {tweet_id}")
                     logger.info(f"Account {account_id}: Daily posts: {self.daily_posts[account_id]}/{self.config.daily_writes_target}")
+                    
+                    # Track success in rate limiter
+                    if rate_limit_tracker:
+                        rate_limit_tracker.record_post_attempt(account_id, success=True)
                 else:
                     logger.error(f"Account {account_id}: Failed to post tweet")
                     
+                    # Track failure in rate limiter
+                    if rate_limit_tracker:
+                        # Check if it was a rate limit error
+                        rate_limit_tracker.record_post_attempt(account_id, success=False, error_type='post_failed')
+                    
             except Exception as e:
                 logger.error(f"Account {account_id}: Error during posting: {e}")
+                
+                # Track error in rate limiter
+                if rate_limit_tracker:
+                    error_type = 'rate_limit' if 'rate limit' in str(e).lower() else 'error'
+                    rate_limit_tracker.record_post_attempt(account_id, success=False, error_type=error_type)
+                    
+                    # Print status after error
+                    if error_type == 'rate_limit':
+                        rate_limit_tracker.print_status()
     
     def _is_within_window(self, dt: datetime) -> bool:
         """Check if datetime is within posting window."""
@@ -313,7 +337,7 @@ class PostScheduler:
         """Get current scheduler status."""
         next_runs = self.get_next_run_times()
         
-        return {
+        status = {
             'scheduler_running': self.scheduler.running,
             'account_a': {
                 'next_run': next_runs['A'].isoformat() if next_runs['A'] else None,
@@ -328,6 +352,13 @@ class PostScheduler:
             'daily_target': self.config.daily_writes_target,
             'posting_window': f"{self.config.post_window_start} - {self.config.post_window_end}"
         }
+        
+        # Add rate limit info if available
+        if rate_limit_tracker:
+            rate_status = rate_limit_tracker.get_status()
+            status['rate_limits'] = rate_status['accounts']
+        
+        return status
     
     async def stop(self):
         """Stop the scheduler."""
