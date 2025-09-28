@@ -11,6 +11,11 @@ from typing import List, Dict, Optional
 import logging
 from datetime import datetime
 
+try:
+    from .domain_hashtags import DomainHashtagManager
+except ImportError:
+    DomainHashtagManager = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,6 +78,7 @@ class ViralTweetComposer:
     
     def __init__(self):
         self.last_angle = None
+        self.domain_manager = DomainHashtagManager() if DomainHashtagManager else None
         
     async def shorten_url(self, long_url: str) -> str:
         """Shorten URL using a service or custom shortener."""
@@ -214,8 +220,27 @@ class ViralTweetComposer:
         # Shorten URL
         short_url = await self.shorten_url(self.BASE_URL)
         
-        # Select 2-3 hashtags (not all)
-        selected_tags = hashtags[:2] if len(hashtags) > 2 else hashtags
+        # Select hashtags with domain requirement
+        if self.domain_manager:
+            # Generate semantic domain hashtags based on category
+            semantic_options = self._get_semantic_hashtags_for_category(category)
+            
+            # Use domain manager to ensure at least one domain hashtag
+            selected_tags = self.domain_manager.select_hashtags_with_domain(
+                trend_hashtags=hashtags[:3],  # Top 3 trends
+                semantic_hashtags=semantic_options,
+                angle=category,
+                require_domain=True,
+                max_hashtags=2
+            )
+            
+            # Log hashtag selection for monitoring
+            for tag in selected_tags:
+                info = self.domain_manager.get_hashtag_info(tag)
+                logger.info(f"Selected hashtag: {tag} - Domain: {info['is_domain']} - Relevance: {info['domain_relevance']}")
+        else:
+            # Fallback to simple selection
+            selected_tags = hashtags[:2] if len(hashtags) > 2 else hashtags
         
         # Build tweet variations
         templates = [
@@ -249,6 +274,20 @@ class ViralTweetComposer:
             fallback = f"{selected_tags[0]} GPU power on-demand! {self.PROMO_CODE} → {short_url}"
         
         return fallback[:280]
+    
+    def _get_semantic_hashtags_for_category(self, category: str) -> List[str]:
+        """Generate semantic hashtags based on category."""
+        semantic_map = {
+            'tech': ['#AICompute', '#GPUCloud', '#MLInference', '#DeepLearning'],
+            'sports': ['#AITraining', '#GPUPower', '#ComputeSpeed', '#FastInference'],
+            'entertainment': ['#AICreative', '#GPURendering', '#CloudCompute', '#MediaAI'],
+            'culture': ['#CreativeAI', '#GPUArt', '#AIInnovation', '#ComputePower'],
+            'news': ['#AIAnalytics', '#DataProcessing', '#GPUCompute', '#CloudScale'],
+            'events': ['#TechInfra', '#GPUDeploy', '#AIScale', '#CloudGPU'],
+            'general': ['#GPUCompute', '#AIInference', '#CloudGPU', '#MLCompute']
+        }
+        
+        return semantic_map.get(category, semantic_map['general'])
 
 
 class SmartTweetOptimizer:
