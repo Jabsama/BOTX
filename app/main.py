@@ -126,7 +126,12 @@ class VoltageGPUBot:
                 
                 # Log periodic status
                 if asyncio.get_event_loop().time() % 600 < 60:  # Every 10 minutes
-                    self.tracker.log_status()
+                    # Properly handle async coroutine
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(self.tracker.log_status())
+                    except RuntimeError:
+                        await self.tracker.log_status()
             
         except Exception as e:
             logger.error(f"Error running bot: {e}")
