@@ -74,28 +74,65 @@ class DomainHashtagManager:
     
     def synthesize_domain_tag(self, angle: str, topic: str = "") -> str:
         """Generate a domain hashtag based on angle and topic"""
-        # Map angles to domain concepts
+        import random
+        
+        # Extended map with more variety based on categories
         angle_map = {
-            "cost": ["CloudCost", "GPUPricing", "ComputeBudget"],
-            "latency": ["LowLatency", "EdgeCompute", "FastInference"],
-            "autoscale": ["AutoScale", "ElasticGPU", "DynamicCompute"],
-            "regions": ["GlobalGPU", "MultiRegion", "EdgeDeploy"],
-            "uptime": ["HighAvailability", "GPUUptime", "ReliableCompute"],
-            "support": ["GPUSupport", "CloudExperts", "TechSupport"]
+            "cost": ["CloudCost", "GPUPricing", "ComputeBudget", "AIValue"],
+            "latency": ["LowLatency", "EdgeCompute", "FastInference", "RealTimeAI"],
+            "autoscale": ["AutoScale", "ElasticGPU", "DynamicCompute", "ServerlessAI"],
+            "regions": ["GlobalGPU", "MultiRegion", "EdgeDeploy", "DistributedAI"],
+            "uptime": ["HighAvailability", "GPUUptime", "ReliableCompute", "AlwaysOn"],
+            "support": ["GPUSupport", "CloudExperts", "TechSupport", "AIHelp"],
+            "sports": ["AITraining", "GPUPower", "ComputeSpeed", "FastInference"],
+            "entertainment": ["AICreative", "GPURendering", "MediaAI", "ContentAI"],
+            "tech": ["AICompute", "MLInference", "DeepLearning", "NeuralNetworks"],
+            "culture": ["CreativeAI", "GPUArt", "AIInnovation", "DigitalArt"],
+            "news": ["AIAnalytics", "DataProcessing", "CloudScale", "BigData"],
+            "events": ["TechInfra", "GPUDeploy", "AIScale", "CloudNative"],
+            "general": ["AIInference", "CloudGPU", "MLCompute", "DeepTech"]
         }
         
-        # Default domain tags if angle not found
+        # Expanded default tags with more variety
         default_tags = [
-            "GPUCompute", "AIInference", "CloudGPU", "MLCompute",
-            "DeepLearning", "AITraining", "GPUCloud", "ComputePower"
+            "AIInference", "CloudGPU", "MLCompute", "DeepLearning",
+            "AITraining", "GPUCloud", "ComputePower", "MachineLearning",
+            "NeuralNets", "AICompute", "CloudCompute", "GPUPower",
+            "AIModels", "MLOps", "DataScience", "AIInfra"
         ]
         
-        # Get tags for angle or use defaults
-        options = angle_map.get(angle, default_tags)
+        # Detect context from topic if provided
+        topic_lower = topic.lower() if topic else ""
         
-        # Pick one based on topic relevance or randomly
-        import random
-        selected = random.choice(options)
+        # Smart selection based on topic keywords
+        if any(word in topic_lower for word in ["ai", "model", "llm", "gpt", "inference"]):
+            options = ["AIInference", "AIModels", "LLMPower", "ModelServing"]
+        elif any(word in topic_lower for word in ["gpu", "nvidia", "cuda", "compute"]):
+            options = ["CloudGPU", "GPUPower", "ComputeScale", "GPUCloud"]
+        elif any(word in topic_lower for word in ["cloud", "scale", "deploy"]):
+            options = ["CloudCompute", "CloudScale", "CloudNative", "CloudInfra"]
+        elif any(word in topic_lower for word in ["data", "analytics", "processing"]):
+            options = ["DataScience", "BigData", "DataProcessing", "Analytics"]
+        else:
+            # Use angle-based selection or defaults
+            options = angle_map.get(angle, default_tags)
+        
+        # Ensure variety by tracking recently used tags
+        if not hasattr(self, '_recent_tags'):
+            self._recent_tags = []
+        
+        # Filter out recently used tags
+        available = [tag for tag in options if tag not in self._recent_tags[-3:]]
+        if not available:
+            available = options
+        
+        # Pick one
+        selected = random.choice(available)
+        
+        # Track usage
+        self._recent_tags.append(selected)
+        if len(self._recent_tags) > 10:
+            self._recent_tags = self._recent_tags[-10:]
         
         return f"#{selected}"
     

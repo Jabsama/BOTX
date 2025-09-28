@@ -146,15 +146,22 @@ class PostScheduler:
                     replace_existing=True
                 )
         
-        # Schedule recurring posts
-        self._schedule_recurring_posts()
+        # Schedule recurring posts AFTER initial posts
+        # Add delay to avoid conflicts with initial posts
+        self._schedule_recurring_posts(delay_for_b=True)
     
-    def _schedule_recurring_posts(self):
+    def _schedule_recurring_posts(self, delay_for_b: bool = False):
         """Schedule recurring posts for both accounts."""
-        # Schedule A to post every 90 minutes
+        now = datetime.now(self.config.timezone)
+        
+        # Schedule A to post every 90 minutes (starting from next interval)
+        a_start = now + timedelta(minutes=self.config.post_interval_minutes)
         self.scheduler.add_job(
             self._post_for_account,
-            IntervalTrigger(minutes=self.config.post_interval_minutes),
+            IntervalTrigger(
+                minutes=self.config.post_interval_minutes,
+                start_date=a_start
+            ),
             args=['A'],
             id='recurring_post_A',
             name='Recurring Post A',
@@ -163,13 +170,22 @@ class PostScheduler:
         )
         
         # Schedule B to post every 90 minutes (offset by 45 minutes from A)
+        # Make sure it doesn't conflict with initial_post_B
+        if delay_for_b:
+            # Start B's recurring posts after the initial post + interval
+            b_start = now + timedelta(
+                minutes=self.config.min_gap_between_accounts + self.config.post_interval_minutes
+            )
+        else:
+            b_start = now + timedelta(
+                minutes=self.config.post_interval_minutes + self.config.min_gap_between_accounts
+            )
+            
         self.scheduler.add_job(
             self._post_for_account,
             IntervalTrigger(
                 minutes=self.config.post_interval_minutes,
-                start_date=datetime.now(self.config.timezone) + timedelta(
-                    minutes=self.config.min_gap_between_accounts
-                )
+                start_date=b_start
             ),
             args=['B'],
             id='recurring_post_B',
